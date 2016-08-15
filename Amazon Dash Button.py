@@ -1,8 +1,8 @@
 #============================================================================
 #                                ---Notes---
 # Author:    Jonathan Bennett
-# Date:      8/7/2016
-# Version:   1.2
+# Date:      8/15/2016
+# Version:   1.3
 #
 # Files:    1.) Amazon Dash Button.py
 #           2.) Config.py
@@ -14,7 +14,7 @@
 # 1.)   You must disable the need for a root password
 #       via the terminal prior to using
 #
-# 2.)   
+# 2.)   Config.py must be located in the same directory as this file
 #
 #
 #============================================================================
@@ -24,7 +24,7 @@
 #
 # 1. Make a subroutine to generate and process URLs instead of having them hardcoded (Note: It must account for dimmable vs non-dimmable light commands in the URL it generates (Ex. bedside lamps can't dim))
 # 2. Alexa
-# 3. Push notifications
+# 3. Push notifications (enabled, just need to be added for each action and enable them to be turned on / off 
 # 4. Write variable (settings) changes to the Config.py file so they remain static
 # 5. Implement error handling
 # 6. Add dictionary for node status instead of current global boolean variables
@@ -88,14 +88,15 @@ elapsedSeconds = 0 #Elapsed time
 # Find devices connected to the network via the ARP table and send the ARP table to a list variable
 def findNetworkDevices( allDevices ):
 
+    global networkInterface #Allows access to the global variable listed
+
     #Clears the list variable to ensure it contains no entries
     del allDevices[:]
 
 
     # Execute arp command to find all currently known devices
-    #proc = subprocess.Popen('sudo arp-scan --interface=enp0s3 --localnet | grep "incomplet" -i -v', shell=True, stdout=subprocess.PIPE)
     proc = subprocess.Popen('sudo arp-scan --interface=' + networkInterface + ' --localnet | grep "incomplet" -i -v', shell=True, stdout=subprocess.PIPE)
-    #proc = subprocess.call([('sudo arp-scan --interface=' + networkInterface + ' --localnet | grep "incomplet" -i -v')])
+    
 
     # Wait for subprocess to exit
     proc.wait()
@@ -538,7 +539,36 @@ def sendiOSPushNotification(pushMessage, deviceNumber): #(deviceNumber) pass thi
 #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
+def selectNetworkAdapter():
 
+    #This function allows the user to select the network adapter to use to monitor the network
+
+
+    global networkInterface #Allows access to the global variable listed
+
+
+#1.) Alerts the user that an attempt will be made to auto-select the network adapter
+    print("\nAttempting to auto-select the network adapter...\n")
+
+    
+#2.) List all network devices
+    proc = subprocess.Popen('ifconfig', shell=True, stdout=subprocess.PIPE) #runs the ifconfig command in the terminal
+    
+    # Wait for subprocess to exit
+    proc.wait()
+
+
+
+    iterationCount = 0 #counts the # of the current loop iteration
+    for line in proc.stdout: #loops through each line in the terminal output
+
+        item = line.split()#splits each word of the current line (space delimited) into a list
+
+        if iterationCount == 0: #The network adapter should be the first item so automatically saves it
+            networkInterface = bytes.decode(item[iterationCount])
+            print("The default network adapter is:", networkInterface)
+
+        iterationCount = iterationCount + 1 #moves the iteration counter up by one
 
 
 
@@ -553,11 +583,13 @@ def sendiOSPushNotification(pushMessage, deviceNumber): #(deviceNumber) pass thi
 
 
 
+
 #main()
 
-#(1.) Greet the user and provide exit instructions
+#(1.) Sets the default networka adapter and greets the user and provide exit instructions
 
-print("\nThe program is running...\n") #Tells the user the program is running
+selectNetworkAdapter(); #sets the default network adapter
+print("\nListening for network activity...\n") #Tells the user the program is running
 print("\n[----- To exit this program press Ctrl + C. -----]\n") #Tells the user how to exit the loop
 
 
