@@ -1,18 +1,36 @@
-#=====================================================================
-#                             ---Notes---
+#============================================================================
+#                                ---Notes---
 # Author:    Jonathan Bennett
 # Date:      8/7/2016
-# Version:   0.9
+# Version:   1.2
+#
+# Files:    1.) Amazon Dash Button.py
+#           2.) Config.py
 #
 #
 # Requirements:
-# -------------------------------------------------------
+# ---------------------------------------------------------------------------
 #
-# 1.)    You must disable the need for a root password
-#        via the terminal prior to using
+# 1.)   You must disable the need for a root password
+#       via the terminal prior to using
+#
+# 2.)   
 #
 #
-#=====================================================================
+#============================================================================
+
+
+#To Do List
+#
+# 1. Make a subroutine to generate and process URLs instead of having them hardcoded (Note: It must account for dimmable vs non-dimmable light commands in the URL it generates (Ex. bedside lamps can't dim))
+# 2. Alexa
+# 3. Push notifications
+# 4. Write variable (settings) changes to the Config.py file so they remain static
+# 5. Implement error handling
+# 6. Add dictionary for node status instead of current global boolean variables
+
+
+
 
 
 
@@ -23,18 +41,28 @@
 ####################################################################################
 
 
-#!/usr/bin/env python
+
 import os,glob,subprocess,errno,sys, time
-import webbrowser
+import xml.etree.ElementTree as ET #WARNING: Module is not secure against maliciously constructed XML data. 
+import urllib.request #urllib.request for Python3 used in place of urllib2 (it's old Python2 name)
+import json,http.client #for "Get Pushed" app that handles iOS Push Notifications 
+import requests
+
+
+
+#CONFIGURATION FILE
+#====================
 from Config import * #imports the Config.py file saved in the same directory
-# Enter device MAC addresses (lowercase) to watch
+
+
+
+#GLOBAL VARIABLES
+#====================
 present_files = []
 allDevices = []
 device = {}
 startTime = 0.0 #The last time the ARP was found
 elapsedSeconds = 0 #Elapsed time
-
-
 
 
  
@@ -65,7 +93,10 @@ def findNetworkDevices( allDevices ):
 
 
     # Execute arp command to find all currently known devices
-    proc = subprocess.Popen('sudo arp-scan --interface=enp0s3 --localnet | grep "incomplet" -i -v', shell=True, stdout=subprocess.PIPE)
+    #proc = subprocess.Popen('sudo arp-scan --interface=enp0s3 --localnet | grep "incomplet" -i -v', shell=True, stdout=subprocess.PIPE)
+    proc = subprocess.Popen('sudo arp-scan --interface=' + networkInterface + ' --localnet | grep "incomplet" -i -v', shell=True, stdout=subprocess.PIPE)
+    #proc = subprocess.call([('sudo arp-scan --interface=' + networkInterface + ' --localnet | grep "incomplet" -i -v')])
+
     # Wait for subprocess to exit
     proc.wait()
 
@@ -173,18 +204,15 @@ def firstButtonPressed(startTime, elapsedSeconds, myDashButtons, device, allDevi
 
 
     if startTime == 0.0:
-        print("\"", currentMAC[1], "\"", "Button was pressed -- 1st occurence within 5 seconds. I will perform an action now.")
+        #print("\"", currentMAC[1], "\"", "Button was pressed -- 1st occurence within 5 seconds. I will perform an action now.")
         startTime = time.time() #The last time the ARP was found
         time.clock()
         elapsedSeconds = 0
 
 
-        print("Current MAC is:", currentMAC[0])
+        #print("Current MAC is:", currentMAC[0])
 
         turnLivingRoomLampsOn(); #Turns on the living room light
-        
-        print("Back From Function Call: LivingRoomLampsStatus =", LivingRoomLampsStatus)
-
 
         while elapsedSeconds < 6:
             time.sleep(ignoreForXSeconds)  #Pauses for the number of seconds we selected to ignore duplicate detections during
@@ -194,7 +222,7 @@ def firstButtonPressed(startTime, elapsedSeconds, myDashButtons, device, allDevi
         
 
     else: #Performs the below if this is not the first time the MAC address was detected within five seconds
-        print("\"", currentMAC[1], "\"", "Button was pressed -- 2nd occurence within 5 seconds. I'm ignoring this button press.")
+        #print("\"", currentMAC[1], "\"", "Button was pressed -- 2nd occurence within 5 seconds. I'm ignoring this button press.")
         while elapsedSeconds < 6:
             time.sleep(ignoreForXSeconds)  #Pauses for the number of seconds we selected to ignore duplicate detections during
             elapsedSeconds = time.time() - startTime
@@ -204,9 +232,6 @@ def firstButtonPressed(startTime, elapsedSeconds, myDashButtons, device, allDevi
     #Clears ARP Table Cache and finds network devices once more for safety
     clearARPCache(myDashButtons); #Clears the ARP Table Cache
     findNetworkDevices( allDevices ); #Finds all devices on network
-
-
-    print("LivingRoomLampsStatus = ",LivingRoomLampsStatus)
 
 
     return() #exits the function
@@ -222,18 +247,15 @@ def secondButtonPressed(startTime, elapsedSeconds, myDashButtons, device, allDev
 
 
     if startTime == 0.0:
-        print("\"", currentMAC[1], "\"", "Button was pressed -- 1st occurence within 5 seconds. I will perform an action now.")
+        #print("\"", currentMAC[1], "\"", "Button was pressed -- 1st occurence within 5 seconds. I will perform an action now.")
         startTime = time.time() #The last time the ARP was found
         time.clock()
         elapsedSeconds = 0
 
 
-        print("Current MAC is:", currentMAC[0])
+        #print("Current MAC is:", currentMAC[0])
 
         turnBedsideLampsOn(); #Turns on the living room light
-        
-        print("Back From Function Call: BedsideLampsStatus =", BedsideLampsStatus)
-
 
         while elapsedSeconds < 6:
             time.sleep(ignoreForXSeconds)  #Pauses for the number of seconds we selected to ignore duplicate detections during
@@ -243,7 +265,7 @@ def secondButtonPressed(startTime, elapsedSeconds, myDashButtons, device, allDev
         
 
     else: #Performs the below if this is not the first time the MAC address was detected within five seconds
-        print("\"", currentMAC[1], "\"", "Button was pressed -- 2nd occurence within 5 seconds. I'm ignoring this button press.")
+        #print("\"", currentMAC[1], "\"", "Button was pressed -- 2nd occurence within 5 seconds. I'm ignoring this button press.")
         while elapsedSeconds < 6:
             time.sleep(ignoreForXSeconds)  #Pauses for the number of seconds we selected to ignore duplicate detections during
             elapsedSeconds = time.time() - startTime
@@ -253,9 +275,6 @@ def secondButtonPressed(startTime, elapsedSeconds, myDashButtons, device, allDev
     #Clears ARP Table Cache and finds network devices once more for safety
     clearARPCache(myDashButtons); #Clears the ARP Table Cache
     findNetworkDevices( allDevices ); #Finds all devices on network
-
-
-    print("BedsideLampsStatus = ",BedsideLampsStatus)
 
 
     return() #exits the function
@@ -272,17 +291,16 @@ def allLightsButtonPressed(startTime, elapsedSeconds, myDashButtons, device, all
 
 
     if startTime == 0.0:
-        print("\"", currentMAC[1], "\"", "Button was pressed -- 1st occurence within 5 seconds. I will perform an action now.")
+        #print("\"", currentMAC[1], "\"", "Button was pressed -- 1st occurence within 5 seconds. I will perform an action now.")
         startTime = time.time() #The last time the ARP was found
         time.clock()
         elapsedSeconds = 0
 
 
-        print("Current MAC is:", currentMAC[0])
+        #print("Current MAC is:", currentMAC[0])
 
         turnOnOffAllLights(); #Turns on the living room light
         
-        print("Back From Function Call: turnOnOffAllLights =", turnOnOffAllLightsBool)
 
 
         while elapsedSeconds < 6:
@@ -293,7 +311,7 @@ def allLightsButtonPressed(startTime, elapsedSeconds, myDashButtons, device, all
         
 
     else: #Performs the below if this is not the first time the MAC address was detected within five seconds
-        print("\"", currentMAC[1], "\"", "Button was pressed -- 2nd occurence within 5 seconds. I'm ignoring this button press.")
+        #print("\"", currentMAC[1], "\"", "Button was pressed -- 2nd occurence within 5 seconds. I'm ignoring this button press.")
         while elapsedSeconds < 6:
             time.sleep(ignoreForXSeconds)  #Pauses for the number of seconds we selected to ignore duplicate detections during
             elapsedSeconds = time.time() - startTime
@@ -302,10 +320,7 @@ def allLightsButtonPressed(startTime, elapsedSeconds, myDashButtons, device, all
 
     #Clears ARP Table Cache and finds network devices once more for safety
     clearARPCache(myDashButtons); #Clears the ARP Table Cache
-    findNetworkDevices( allDevices ); #Finds all devices on network
-
-
-    print("turnOnOffAllLightsBool = ",turnOnOffAllLightsBool)
+    findNetworkDevices( allDevices ); #Finds all devicpython gui tutoriales on network
 
 
     return() #exits the function
@@ -329,25 +344,27 @@ def turnLivingRoomLampsOn():
     #http://wiki.micasaverde.com/index.php/Luup_Requests
 
 
-    global LivingRoomLampsStatus
+    global LivingRoomLampsStatus #Grants the function access to the global variable stored in the Config.py file
 
-
-    print("turnLivingRoomLampsOn")
-
-    print("On Function Start: LivingRoomLampsStatus =", LivingRoomLampsStatus)
+    getZWaveNodeStatus('LivingRoomLightsNode', False, False); #Updates the global variable for the node's status but suppresses printing to the terminal
 
     if LivingRoomLampsStatus == False:
         #Turn on light
-        webbrowser.open('http://192.168.1.145:3480/data_request?id=action&output_format=xml&DeviceNum=8&serviceId=urn%3Aupnp-org%3AserviceId%3ADimming1&action=SetLoadLevelTarget&newLoadlevelTarget=100')
-        LivingRoomLampsStatus = True
+        file = urllib.request.urlopen('http://192.168.1.145:3480/data_request?id=action&output_format=xml&DeviceNum=' +
+                                      str(zWaveNetworkNodes.get('LivingRoomLightsNode')) +
+                                      '&serviceId=urn%3Aupnp-org%3AserviceId%3ADimming1&action=SetLoadLevelTarget&newLoadlevelTarget=100')
+        data = file.read()
+        file.close()   
     else:
         #Turn off light
-        webbrowser.open('http://192.168.1.145:3480/data_request?id=action&output_format=xml&DeviceNum=8&serviceId=urn%3Aupnp-org%3AserviceId%3ADimming1&action=SetLoadLevelTarget&newLoadlevelTarget=0')
-        
-        LivingRoomLampsStatus = False
+        file = urllib.request.urlopen('http://192.168.1.145:3480/data_request?id=action&output_format=xml&DeviceNum=' +
+                                      str(zWaveNetworkNodes.get('LivingRoomLightsNode')) +
+                                      '&serviceId=urn%3Aupnp-org%3AserviceId%3ADimming1&action=SetLoadLevelTarget&newLoadlevelTarget=0')
+        data = file.read()
+        file.close()
 
 
-    print("Before Function Exit: LivingRoomLampsStatus =", LivingRoomLampsStatus)
+    getZWaveNodeStatus('LivingRoomLightsNode', True, True); #Updates the global variable for the node's status and prints to the terminal
 
         
     return() #exits the function
@@ -364,24 +381,21 @@ def turnBedsideLampsOn():
     #http://wiki.micasaverde.com/index.php/Luup_Requests
 
 
-    global BedsideLampsStatus
+    global BedsideLampsStatus #Grants the function access to the global variable stored in the Config.py file
 
-    print("turnBedsideLampsOn")
-
-    print("On Function Start: BedsideLampsStatus =", BedsideLampsStatus)
 
     if BedsideLampsStatus == False:
         #Turn on light
-        webbrowser.open('http://192.168.1.145:3480/data_request?id=action&output_format=xml&DeviceNum=3&serviceId=urn:upnp-org:serviceId:SwitchPower1&action=SetTarget&newTargetValue=100')
+        file = urllib.request.urlopen('http://192.168.1.145:3480/data_request?id=action&output_format=xml&DeviceNum=3&serviceId=urn:upnp-org:serviceId:SwitchPower1&action=SetTarget&newTargetValue=100')
+        data = file.read()
+        file.close()
         BedsideLampsStatus = True
     else:
         #Turn off light
-        webbrowser.open('http://192.168.1.145:3480/data_request?id=action&output_format=xml&DeviceNum=3&serviceId=urn:upnp-org:serviceId:SwitchPower1&action=SetTarget&newTargetValue=0')
-        
+        file = urllib.request.urlopen('http://192.168.1.145:3480/data_request?id=action&output_format=xml&DeviceNum=3&serviceId=urn:upnp-org:serviceId:SwitchPower1&action=SetTarget&newTargetValue=0')
+        data = file.read()
+        file.close()
         BedsideLampsStatus = False
-
-
-    print("Before Function Exit: BedsideLampsStatus =", BedsideLampsStatus)
 
         
     return() #exits the function
@@ -398,41 +412,130 @@ def turnOnOffAllLights():
     #http://wiki.micasaverde.com/index.php/Luup_Requests
 
 
-    global turnOnOffAllLightsBool
-    global LivingRoomLampsStatus
-    global BedsideLampsStatus
+    global allLightsAreOnBool #Grants the function access to the global variable stored in the Config.py file
+    global LivingRoomLampsStatus #Grants the function access to the global variable stored in the Config.py file
+    global BedsideLampsStatus #Grants the function access to the global variable stored in the Config.py file
 
-    print("turnOnOffAllLights")
+    #print("turnOnOffAllLights")
 
-    print("On Function Start: turnOnOffAllLightsBool =", turnOnOffAllLightsBool)
+    #print("On Function Start: allLightsAreOnBool =", allLightsAreOnBool)
 
-    if turnOnOffAllLightsBool == False:
-
+    if allLightsAreOnBool == False:
         if LivingRoomLampsStatus == False:
             #Turn on light
-            webbrowser.open('http://192.168.1.145:3480/data_request?id=action&output_format=xml&DeviceNum=8&serviceId=urn%3Aupnp-org%3AserviceId%3ADimming1&action=SetLoadLevelTarget&newLoadlevelTarget=100')
+            file = urllib.request.urlopen('http://192.168.1.145:3480/data_request?id=action&output_format=xml&DeviceNum=8&serviceId=urn%3Aupnp-org%3AserviceId%3ADimming1&action=SetLoadLevelTarget&newLoadlevelTarget=100')
+            data = file.read()
+            file.close()
             LivingRoomLampsStatus = True
-            
-            webbrowser.open('http://192.168.1.145:3480/data_request?id=action&output_format=xml&DeviceNum=3&serviceId=urn:upnp-org:serviceId:SwitchPower1&action=SetTarget&newTargetValue=100')
+            file = urllib.request.urlopen('http://192.168.1.145:3480/data_request?id=action&output_format=xml&DeviceNum=3&serviceId=urn:upnp-org:serviceId:SwitchPower1&action=SetTarget&newTargetValue=100')
+            data = file.read()
+            file.close()
             BedsideLampsStatus = True
-
+            allLightsAreOnBool = True
         else:
-
             #Turn off light
-            webbrowser.open('http://192.168.1.145:3480/data_request?id=action&output_format=xml&DeviceNum=8&serviceId=urn%3Aupnp-org%3AserviceId%3ADimming1&action=SetLoadLevelTarget&newLoadlevelTarget=0')
+            file = urllib.request.urlopen('http://192.168.1.145:3480/data_request?id=action&output_format=xml&DeviceNum=8&serviceId=urn%3Aupnp-org%3AserviceId%3ADimming1&action=SetLoadLevelTarget&newLoadlevelTarget=0')
+            data = file.read()
+            file.close()
             LivingRoomLampsStatus = False
-            
-            #Turn off light
-            webbrowser.open('http://192.168.1.145:3480/data_request?id=action&output_format=xml&DeviceNum=3&serviceId=urn:upnp-org:serviceId:SwitchPower1&action=SetTarget&newTargetValue=0')
+            file = urllib.request.urlopen('http://192.168.1.145:3480/data_request?id=action&output_format=xml&DeviceNum=3&serviceId=urn:upnp-org:serviceId:SwitchPower1&action=SetTarget&newTargetValue=0')
+            data = file.read()
+            file.close()
             BedsideLampsStatus = False
-            
-            turnOnOffAllLightsBool = False
-
-
-    print("Before Function Exit: turnOnOffAllLightsBool =", turnOnOffAllLightsBool)
+            allLightsAreOnBool = False
 
         
     return() #exits the function
+
+
+
+
+
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+def getZWaveNodeStatus(deviceNumber, printCurrentNodeStatus,delayStatusCheck):
+
+    #This subroutine gets the current status (On or Off) of the specified device and its dimmer level
+
+
+    #Pauses, if requested, before polling the node for its status
+    if delayStatusCheck == True:
+        
+        time.sleep(ignoreForXSeconds)  #Pauses for the number of seconds designated in Config.py file
+
+
+
+    global LivingRoomLampsStatus #Grants the function access to the global variable stored in the Config.py file
+    global BedsideLampsStatus
+    global allLightsAreOnBool
+    
+    
+
+    baseUrl = ('http://192.168.1.145:3480/data_request?id=status&output_format=xml&DeviceNum=' + str(zWaveNetworkNodes.get(deviceNumber)))#The URL for the node's status page in XML format
+    resp = requests.get(baseUrl)
+    msg = resp.content
+    root = ET.fromstring(msg)
+
+
+    currentIteration = 0 #Integer for iteration counter
+    
+    for state in root.iter('state'): #Loops through each leaf in the XML tree for the "states" branch
+        leafDict = (state.attrib) #allows access to the attributes of the state tags
+        
+        if currentIteration == 0: #Change the integer of the iteration number you're looking for to return a record lower in the tree's hierarchy
+            
+            if int(leafDict.get('value')) == 0: #Changes the global variable to reflect the node's current boolean status
+                LivingRoomLampsStatus = False
+            else:
+                LivingRoomLampsStatus = True
+        currentIteration = currentIteration + 1 #Increases the iteration counter by 1
+
+
+
+    if printCurrentNodeStatus == True: #Only prints the node status if the printCurrentNodeStatus boolean value is True
+
+        if LivingRoomLampsStatus == True:
+            nodeStatusString = "On"
+        else:
+            nodeStatusString = "Off"
+
+                
+        print("The node is:", nodeStatusString) #Prints the status of the current node
+
+
+
+    return() #exits the function
+
+
+
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+def sendiOSPushNotification(pushMessage, deviceNumber): #(deviceNumber) pass this in as a parameter later
+
+    #This subroutine gets the current status (On or Off) of the specified device and its dimmer level
+
+    connection = http.client.HTTPSConnection('api.pushed.co', 443)
+    connection.connect()
+    connection.request('POST', '/1/push', json.dumps({ "app_key": "d2SppjFIuWjNElusvS4Z",
+                                                       "app_secret": "xeMapROJb3C2j8P1p67eUYdDuEWhRU6inYiIPZ1Xg9gcjqDNgunWOP4ABRieiQBg",
+                                                       "target_type": "app",
+                                                       "content": "Living room lights turned on @ 12:22 AM"}), #The message goes here
+                                                       { "Content-Type": "application/json" } )
+    str_response = connection.getresponse().read().decode('utf-8')
+    result = json.loads(str_response)
+    #print(result) #Commented out to suppress printing of the confirmation message    
+
+    return() #exits the function
+
+
+
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
 
@@ -444,6 +547,9 @@ def turnOnOffAllLights():
 ###############################################      END FUNCTION DEFINITIONS       #############################################################
 #################################################################################################################################################
 #################################################################################################################################################
+
+
+
 
 
 
